@@ -7,7 +7,7 @@ class Bomber(object):
         self.phone = phone
         self.options = webdriver.FirefoxOptions()
         self.options.add_argument('--headless') # 后台模式
-
+111
     # 百度
     def func0(self):
         browser = webdriver.Firefox(firefox_options=self.options)
