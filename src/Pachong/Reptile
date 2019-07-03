@@ -4,7 +4,14 @@ from requests.exceptions import RequestException
 from bs4 import BeautifulSoup
 from time import sleep
 import pymongo
+import xlwt
 
+#设置excel样式
+style0 = xlwt.easyxf('font: name Times New Roman, color-index red, bold on',num_format_str='#,##0.00')
+style1 = xlwt.easyxf('font: name Times New Roman, color-index green, bold on',num_format_str='#,##0.00')
+#声明一个excel对象
+wb = xlwt.Workbook()
+ws = wb.add_sheet('A Test Sheet')
 
 def get_one_page(url):
     try:
@@ -17,7 +24,7 @@ def get_one_page(url):
             "Upgrade - Insecure - Requests": "1",
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36"
         }
-        response = requests.get("https://sh.lianjia.com/zufang/d0", headers=headers)
+        response = requests.get(url, headers=headers)
         if response.status_code == 200:
             return response.text
         else:
@@ -31,20 +38,27 @@ def parse_one_page(html, id):
     prefix = "https://sh.lianjia.com"
     for item in soup.select('.content__list--item'):
         houseInfo = item.find("img").get("alt")
-        if "2室"  in houseInfo:
+        if "2室" in houseInfo:
             houseUrl = prefix + item.find("a").get("href")
             housePrice = item.find(class_="content__list--item-price").get_text().split(" ")[0]
-            houseTime = item.find(class_="content__list--item--time").get_text() 
-            print("地址:  "+houseInfo + "   价格:"+housePrice+ "   发布时间:"+ houseTime + "   url:" +houseUrl)
+            houseTime = item.find(class_="content__list--item--time").get_text()
+            print("地址:  " + houseInfo + "   价格:" + housePrice + "   发布时间:" + houseTime + "   url:" + houseUrl)
+            #设置excel的内容
+            ws.write(id+1, 0, houseInfo, style1)
+            ws.write(id+1, 1, housePrice, style1)
+            ws.write(id+1, 2, houseTime, style1)
+            ws.write(id+1, 3, houseUrl, style1)
             id += 1
             yield {
-                '_id': id,
-                'houseUrl': houseUrl,
-                'houseInfo': houseInfo,
-                'housePrice': housePrice,
-                'houseTime': houseTime
-            }, id
-        
+                          '_id': id,
+                          'houseUrl': houseUrl,
+                          'houseInfo': houseInfo,
+                          'housePrice': housePrice,
+                          'houseTime': houseTime
+                }, id
+    # 循环完成保存到house.xls中
+    wb.save('house.xls')
+
 
 if __name__ == '__main__':
     client = pymongo.MongoClient('mongodb://localhost:27017')
@@ -52,9 +66,19 @@ if __name__ == '__main__':
     db = client[db_name]
     collection_set01 = db['set01']
     index = 0
-    for page in range(70):
+    # 设置excel的头部
+    ws.write(0, 0, "地址", style0)
+    ws.write(0, 1, "价格", style0)
+    ws.write(0, 2, "发布时间", style0)
+    ws.write(0, 3, "url", style0)
+    #总页码设置
+    for page in range(1):
         sleep(1)
-        url = 'https://sh.lianjia.com/zufang/minhang/d' + str(page)
+        #url拼接
+        url = 'https://sh.lianjia.com/zufang/minhang/pg'+str(page)+'/#contentList'
         html = get_one_page(url)
+        print(html)
         for item, index in parse_one_page(html, index):
-            collection_set01.save(item)
+            #collection_set01.save(item)
+            print()
+    print("完成")
